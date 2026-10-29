@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Monday's Windows setup (2026-10-17, the owner: "this type of setup", Coucou's installer): the standard Windows Installer wizard
+     (Welcome, where, Install, Finish with "Launch Monday"), for this Windows user, no admin: Monday keeps its data beside its app, as it
+     does in E:\monday\app. Built by installer/build.py with WiX 5, which stages what goes in: the app (never data\ or Monday\.env),
+     pythonnet (pylib) and the Python packages Monday imports (lib). Python 3.14 from python.org is the one thing it needs on the PC. -->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package Name="Monday" Manufacturer="Monday" Version="$(Version)" UpgradeCode="F00BE406-18F5-4A5B-A30B-1541E4891B38"
+           Scope="perUser" Compressed="yes" Language="1033">
+    <SummaryInformation Description="Monday: your computer, by voice" />
+    <MajorUpgrade DowngradeErrorMessage="A newer Monday is already installed." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <Icon Id="MondayIcon" SourceFile="$(Stage)\app\static\monday.ico" />
+    <Property Id="ARPPRODUCTICON" Value="MondayIcon" />
+
+    <!-- Python 3.14, 64-bit, from python.org (for everyone or for this user): Monday runs on it -->
+    <Property Id="PYTHONW">
+      <RegistrySearch Root="HKLM" Key="SOFTWARE\Python\PythonCore\3.14\InstallPath" Name="WindowedExecutablePath" Type="raw" Bitness="always64" />
+      <RegistrySearch Root="HKCU" Key="SOFTWARE\Python\PythonCore\3.14\InstallPath" Name="WindowedExecutablePath" Type="raw" />
+    </Property>
+    <Launch Condition="Installed OR PYTHONW"
+            Message="Monday needs Python 3.14 (64-bit) from python.org. Install it, then run this setup again." />
+
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="ProgramsFolder" Name="Programs">
+        <Directory Id="INSTALLFOLDER" Name="Monday">
+          <Directory Id="APPDIR" Name="app" />
+          <Directory Id="PYLIBDIR" Name="pylib" />
+          <Directory Id="LIBDIR" Name="lib" />
+        </Directory>
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Component Id="MenuShortcut">
+        <Shortcut Id="MondayMenu" Name="Monday" Description="Monday: your computer, by voice" Target="[PYTHONW]"
+                  Arguments="-m core.desktop" WorkingDirectory="APPDIR" Icon="MondayIcon">
+          <ShortcutProperty Key="System.AppUserModel.ID" Value="Monday.Desktop" />
+        </Shortcut>
+        <RegistryValue Root="HKCU" Key="Software\Monday" Name="menu" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="DesktopShortcut">
+        <Shortcut Id="MondayDesktop" Name="Monday" Description="Monday: your computer, by voice" Target="[PYTHONW]"
+                  Arguments="-m core.desktop" WorkingDirectory="APPDIR" Icon="MondayIcon">
+          <ShortcutProperty Key="System.AppUserModel.ID" Value="Monday.Desktop" />
+        </Shortcut>
+        <RegistryValue Root="HKCU" Key="Software\Monday" Name="desktop" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <Feature Id="Main" Title="Monday" Level="1">
+      <ComponentGroupRef Id="App" />
+      <ComponentGroupRef Id="Pylib" />
+      <ComponentGroupRef Id="Lib" />
+      <ComponentRef Id="MenuShortcut" />
+      <ComponentRef Id="DesktopShortcut" />
+    </Feature>
+
+    <!-- Finish: "Launch Monday", ticked (Coucou's wizard ends the same way) -->
+    <CustomAction Id="LaunchMonday" Directory="APPDIR" ExeCommand="&quot;[PYTHONW]&quot; -m core.desktop" Return="asyncNoWait" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Launch Monday" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+
+    <!-- The wizard: Welcome, the folder, Ready, Install, Finish (no licence page: Monday is the owner's own) -->
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+    <UI>
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="InstallDirDlg" Order="2" />
+      <Publish Dialog="InstallDirDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" Order="2" />
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchMonday"
+               Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed" />
+    </UI>
+    <WixVariable Id="WixUIBannerBmp" Value="$(Art)\banner.bmp" />
+    <WixVariable Id="WixUIDialogBmp" Value="$(Art)\dialog.bmp" />
+  </Package>
+
+  <Fragment>
+    <ComponentGroup Id="App" Directory="APPDIR">
+      <Files Include="$(Stage)\app\**" />
+    </ComponentGroup>
+    <ComponentGroup Id="Pylib" Directory="PYLIBDIR">
+      <Files Include="$(Stage)\pylib\**" />
+    </ComponentGroup>
+    <ComponentGroup Id="Lib" Directory="LIBDIR">
+      <Files Include="$(Stage)\lib\**" />
+    </ComponentGroup>
+  </Fragment>
+</Wix>
